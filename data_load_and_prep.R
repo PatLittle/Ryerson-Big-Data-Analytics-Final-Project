@@ -37,8 +37,10 @@ subj1<-q1$subject[1]
 subj2<-q1$subject[2]
 subj3<-q1$subject[3]
 subj4<-q1$subject[4]
-q1data<-data.frame(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4)
-names(q1data)<-c("ID","org","desc","collection","freq","jurisdiction","key1","key2","key3","num_keys","num_res","subj1","subj2","subj3","subj4")
+date_created<-q1$metadata_created
+date_last_mod<-q1$metadata_modified
+q1data<-data.frame(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4,date_created,date_last_mod)
+names(q1data)<-c("ID","org","desc","collection","freq","jurisdiction","key1","key2","key3","num_keys","num_res","subj1","subj2","subj3","subj4","date_created","date_last_mod")
 
 for(i in 2:length(lines)){ #loop over this for each line of json - except the 1st line
   q1<-fromJSON(lines[[i]])
@@ -57,9 +59,12 @@ for(i in 2:length(lines)){ #loop over this for each line of json - except the 1s
   subj2<-q1$subject[2]
   subj3<-q1$subject[3]
   subj4<-q1$subject[4]
-  q1data<- q1data %>% add_row(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4)
+  date_created<-q1$metadata_created
+  date_last_mod<-q1$metadata_modified
+  q1data<- q1data %>% add_row(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4,date_created,date_last_mod)
   print(i)
 }
+
 
 
 
