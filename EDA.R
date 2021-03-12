@@ -46,6 +46,21 @@ names(collection_mean)[names(collection_mean)=="mean_downloads"]<-"downloads adj
 collection_mean.long <- gather(collection_mean, variable,value, -collection)
 names(collection_mean.long)[names(collection_mean.long)=="value"]<-"number of downloads"
 
-collection_dl<-ggplot(data=collection_mean.long, aes(x=collection, y=value, fill=variable)) +
+collection_dl<-ggplot(data=collection_mean.long, aes(x=collection, y=`number of downloads`, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge())
+collection_dl+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+#exploring how the frequency of update effects the downloads
+freq_mean_non_adj<-ddply(combined_factor, .(combined_factor$freq), summarize, mean_downloads=mean(downloads))
+freq_mean_adj<-ddply(combined_factor, .(combined_factor$freq), summarize, mean_downloads=mean(adj_downloads))
+freq_mean<-cbind(freq_mean_adj,freq_mean_non_adj$mean_downloads)
+names(freq_mean)[names(freq_mean)=="combined_factor$freq"]<-"update frequency"
+names(freq_mean)[names(freq_mean)=="freq_mean_non_adj$mean_downloads"]<-"downloads non adjusted"
+names(freq_mean)[names(freq_mean)=="mean_downloads"]<-"downloads adjusted"
+freq_mean.long <- gather(freq_mean, variable,value, -`update frequency`)
+names(freq_mean.long)[names(freq_mean.long)=="value"]<-"number of downloads"
+
+collection_dl<-ggplot(data=freq_mean.long, aes(x=`update frequency`, y=`number of downloads`, fill=variable)) +
   geom_bar(stat="identity", position=position_dodge())
 collection_dl+theme(axis.text.x = element_text(angle=45, hjust=1))
