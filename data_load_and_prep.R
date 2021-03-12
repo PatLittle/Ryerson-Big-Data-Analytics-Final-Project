@@ -88,6 +88,11 @@ factors_combined_subj2<-levels(as.factor(combined$subj2))
 factors_combined_subj3<-levels(as.factor(combined$subj3))
 factors_combined_subj4<-levels(as.factor(combined$subj4))
 
+#normalize the datetime stamps to R date format
+combined$date_created<-as.Date(combined$date_created)
+combined$date_last_mod<-as.Date(combined$date_last_mod)
+
+
 saveRDS(combined,"combined_factor.rds")
 
 #convert character to factor collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4
