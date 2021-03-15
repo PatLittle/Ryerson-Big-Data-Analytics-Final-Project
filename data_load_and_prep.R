@@ -110,5 +110,5 @@ saveRDS(combined,"combined_factor.rds")
 
 
 saveRDS(combined, "combined.rds")
-combined_1h<-one_hot(as.data.table(combined)) 
+#combined_1h<-one_hot(as.data.table(combined)) 
 #saveRDS(combined_1h, "combined_1h.rds") #save this 

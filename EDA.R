@@ -19,14 +19,14 @@ ggpar(p_non_adj, xlim =c (0,365))
 
 #create a date adjusted number of downloads proportional to the percent of the year it existed for
 
+
 j<-1
 for(i in 1:length(combined_factor$downloads)){
-  if (combined_factor$created_days[j]< 365){
+  if (combined_factor$created_days[i]< 365){
   combined_factor$adj_downloads[j]<-round(365*(combined_factor$downloads[j]/combined_factor$created_days[j]),digits=0)
-  } 
+  } else combined_factor$adj_downloads[j]<-combined_factor$downloads[j]
   j<-j+1
 }
-
 
 p_adj<-ggscatter(combined_factor, x = "created_days", y = "adj_downloads",
           color = "red", cor.coef = TRUE, 
@@ -64,3 +64,29 @@ names(freq_mean.long)[names(freq_mean.long)=="value"]<-"number of downloads"
 collection_dl<-ggplot(data=freq_mean.long, aes(x=`update frequency`, y=`number of downloads`, fill=variable)) +
   geom_bar(stat="identity", position=position_dodge())
 collection_dl+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#looking at the distribution of the downloads
+summary(combined_factor$adj_downloads)
+non_zero<-sum(combined_factor$adj_downloads>0)
+non_zero
+quant_list<-as.list(quantile(combined_factor$adj_downloads, probs = seq(0, 1, by= 0.01)))
+quant_list[96]
+
+#we are taking the 95% percentile as the definition of our 'popular' adjusted downloads. The we are adding a column to the dataframe which is binary encoded 
+# with 1 for popular 0 for not popular
+
+j<-1
+for(i in 1:length(combined_factor$adj_downloads)){
+  if (combined_factor$adj_downloads[j]< quant_list[96]){
+    combined_factor$bin_downloads[j]<-0
+  } else {
+    combined_factor$bin_downloads[j]<-1
+  }
+  j<-j+1
+}
+
+combined_factor$bin_downloads<-as.factor(combined_factor$bin_downloads)
+
+sum(combined_factor$bin_downloads)
+
+saveRDS(combined_factor,"combined_factor_adj.rds")

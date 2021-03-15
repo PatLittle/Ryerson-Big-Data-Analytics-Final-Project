@@ -1,0 +1,39 @@
+---
+title: "Initial Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project Overview
+
+Open.Canada.ca, the Government of Canada’s Open Data Portal contains over 85,000 open datasets or open information resources. These datasets are published by many different government organizations and covers subject matter on a variety of topic areas. On Open.Canada.ca certain datasets receive several thousand downloads per month, while others receive little to no usage on a monthly basis.
+
+Having the ability to predict the popularity of a dataset at the time of publication would enable open data publishers to surface the most relevant and in demand content to users on the open data portal, as well as determine which newly released datasets to promote via other channels such as social media.
+
+In the last 12 months an average of 365 new open datasets were released each month on Open.Canada.ca . The velocity of data release means that it would require significant effort from a person to monitor the release of all these new datasets and use their intuition or some other heuristic to determine what newly released datasets to promote or recommend to users. As such, this problem is well suited to be augmented with a predictive model that can identify newly published datasets at the time of publication which are likely to be popular. 
+
+### Datasets
+
+This project relies on two source datasets. The first dataset is the metadata catalogue from Open.Canada.ca. The Government of Canada publishes an open dataset of the metadata for all the data and information resources available on Open.Canada.ca. This dataset is updated every night with the latest data.  
+
+The second dataset to be used is a listing of the number of downloads from Open.Canada.ca for the last 12 months, by dataset.  This dataset is published as an .xls workbook and is updated on the 1st business day of each month with data from the previous 12 months.
+
+The latest data from Open.Canada.ca is available at https://open.canada.ca/data/dataset/2916fad5-ebcc-4c86-b0f3-4f619b29f412/resource/4ebc050f-6c3c-4dfd-817e-875b2caf3ec6/download/downloads-012020-012021.xls for downloads, and at https://open.canada.ca/static/od-do-canada.jsonl.gz for the metadata. For the purposes of the research paper, files as they existed on 2 Feb 2021 will be used.
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
