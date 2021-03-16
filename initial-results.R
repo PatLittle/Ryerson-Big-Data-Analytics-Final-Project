@@ -143,7 +143,7 @@ final_xgb %>%
   vip(geom = "point")
 
 
-final_res <- last_fit(final_xgb, cb_split)
+final_res <- last_fit(final_xgb, pop_split)
 collect_metrics(final_res)
 
 

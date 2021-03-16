@@ -1,5 +1,5 @@
 ---
-title: "Initial Results"
+title: "Initial Results - Predicting the Popularity of Open Datasets"
 output: html_document
 ---
 
@@ -23,17 +23,715 @@ The second dataset to be used is a listing of the number of downloads from Open.
 
 The latest data from Open.Canada.ca is available at https://open.canada.ca/data/dataset/2916fad5-ebcc-4c86-b0f3-4f619b29f412/resource/4ebc050f-6c3c-4dfd-817e-875b2caf3ec6/download/downloads-012020-012021.xls for downloads, and at https://open.canada.ca/static/od-do-canada.jsonl.gz for the metadata. For the purposes of the research paper, files as they existed on 2 Feb 2021 will be used.
 
+### Github Link
 
-```{r cars}
-summary(cars)
+The code and data developed for this project is available at https://github.com/PatLittle/Ryerson-Big-Data-Analytics-Final-Project
+
+
+## Results
+
+### Data Load and Preperation
+
+Here we are taking the downloads dataset, and removing two unneeded worksheets, then maping the data from the remaining 86 tabs in the workbook into a coherent dataframe.
+
+```{r}
+library(readxl)
+library(openxlsx)
+library(tidyverse)
+wb<-loadWorkbook("downloads-012020-012021.xlsx")
+removeWorksheet(wb, 1)#remove the unwanted tabs
+removeWorksheet(wb, 1)#do it again for the 2nd unwanted
+saveWorkbook(wb,"downloads.xlsx", overwrite = T)
+
+path<-"downloads.xlsx"
+dls<-lapply(excel_sheets(path), read_excel, path = path)
+
+dl_df<-map_dfr(dls,`[`, c("ID / Identificateur","Title English / Titre en anglais","Number of downloads / Nombre de téléchargements"))
+dl_df<-na.omit(dl_df)
+dl_df$`Title English / Titre en anglais`<-NULL
+names(dl_df)<-c("ID","downloads")
+```
+Next we Gunzip the metadata catalogue dataset and then read in the JSON object.
+
+```{r}
+R.utils::gunzip("od-do-canada.jsonl.gz", remove=F)
+query1<-readLines("od-do-canada.jsonl")
+lines <- lapply(query1,unlist)
+
 ```
 
-## Including Plots
+We then parse the relevant data from the JSON object into a dataframe.
 
-You can also embed plots, for example:
+```{r}
+library(jsonlite)
+q1<-fromJSON(lines[[1]])
+ID<-q1$id
+org<-q1$organization$name
+desc<-as.numeric(length(unlist(strsplit(q1$notes," "))))
+collection<-q1$collection
+freq<-q1$frequency
+jurisdiction<-q1$jurisdiction
+key1<-q1$keywords$en[1]
+key2<-q1$keywords$en[2]
+key3<-q1$keywords$en[3]
+num_keys<-as.numeric(length(q1$keywords$en))
+num_res<-as.numeric(q1$num_resources)
+subj1<-q1$subject[1]
+subj2<-q1$subject[2]
+subj3<-q1$subject[3]
+subj4<-q1$subject[4]
+date_created<-q1$metadata_created
+date_last_mod<-q1$metadata_modified
+q1data<-data.frame(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4,date_created,date_last_mod)
+names(q1data)<-c("ID","org","desc","collection","freq","jurisdiction","key1","key2","key3","num_keys","num_res","subj1","subj2","subj3","subj4","date_created","date_last_mod")
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+for(i in 2:length(lines)){ #loop over this for each line of json - except the 1st line
+q1<-fromJSON(lines[[i]])
+ID<-q1$id
+org<-q1$organization$name
+desc<-as.numeric(length(unlist(strsplit(q1$notes," "))))
+collection<-q1$collection
+freq<-q1$frequency
+jurisdiction<-q1$jurisdiction
+key1<-q1$keywords$en[1]
+key2<-q1$keywords$en[2]
+key3<-q1$keywords$en[3]
+num_keys<-as.numeric(length(q1$keywords$en))
+num_res<-as.numeric(q1$num_resources)
+subj1<-q1$subject[1]
+subj2<-q1$subject[2]
+subj3<-q1$subject[3]
+subj4<-q1$subject[4]
+date_created<-q1$metadata_created
+date_last_mod<-q1$metadata_modified
+q1data<- q1data %>% add_row(ID,org,desc,collection,freq,jurisdiction,key1,key2,key3,num_keys,num_res,subj1,subj2,subj3,subj4,date_created,date_last_mod)
+}
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We can then join the downloads data on to the metadata by using the 'ID' of each dataset. We will also covert date values to the correct format for R.
+```{r}
+library(gtools)
+combined<-merge(x = q1data, y = dl_df, by = "ID", all.x = TRUE)
+combined<-na.replace(combined,0)
+
+
+combined$date_created<-as.Date(combined$date_created)
+combined$date_last_mod<-as.Date(combined$date_last_mod)
+```
+
+## Exploratory Data Analysis
+
+Some of the datasets contained in our data did not exist for the complete 12 months during the analytics collection. We can look at how the age of datasets affects the number of downloads, for datasets that only existed for part of the period.
+
+Since our downloads data ranges from 2020-02-01 - 2021-01-31, we can add a column in the dataset that gives the data created and date last modified in relation to 2021-01-31.
+```{r}
+combined_factor<-combined
+```
+
+
+```{r}
+library(ggpubr)
+library(plyr)
+library(dplyr)
+
+date_of_downloads<-as.Date.character("2021-01-31","%Y-%m-%d")
+combined_factor$created_days<-as.numeric(difftime(date_of_downloads,combined_factor$date_created, units="days"))
+combined_factor$modified_days<-as.numeric(difftime(date_of_downloads,combined_factor$date_last_mod, units="days"))
+
+p_non_adj<-ggscatter(combined_factor, x = "created_days", y = "downloads",
+          color = "red", cor.coef = TRUE, 
+          cor.method = "spearman",
+          xlab = "Age of Dataset", ylab = "Annual Downloads")
+ggpar(p_non_adj, xlim =c (0,365))
+```
+
+Based on our proportion of the year a dataset existed for, we can scale our number of downloads to an annualized amount based their performance during their lifespan.
+
+```{r}
+j<-1
+for(i in 1:length(combined_factor$downloads)){
+  if (combined_factor$created_days[i]< 365){
+  combined_factor$adj_downloads[j]<-round(365*(combined_factor$downloads[j]/combined_factor$created_days[j]),digits=0)
+  } else combined_factor$adj_downloads[j]<-combined_factor$downloads[j]
+  j<-j+1
+}
+
+p_adj<-ggscatter(combined_factor, x = "created_days", y = "adj_downloads",
+          color = "red", cor.coef = TRUE, 
+          cor.method = "spearman",
+          xlab = "Age of Dataset (days)", ylab = "Adjusted Annual Downloads")
+ggpar(p_adj, xlim =c (0,365))
+```
+We can then explore how individual factors might affect their popularity by looking at the mean downloads for each factor within a variable. 
+
+First we can look at the mean downloads by collection type. We can also see how adjusting the downloads for datasets that existed for less than 12 months affects the mean downloads.
+
+```{r}
+collection_mean_non_adj<-ddply(combined_factor, .(combined_factor$collection), summarize, mean_downloads=mean(downloads))
+collection_mean_adj<-ddply(combined_factor, .(combined_factor$collection), summarize, mean_downloads=mean(adj_downloads))
+collection_mean<-cbind(collection_mean_adj,collection_mean_non_adj$mean_downloads)
+names(collection_mean)[names(collection_mean)=="combined_factor$collection"]<-"collection"
+names(collection_mean)[names(collection_mean)=="collection_mean_non_adj$mean_downloads"]<-"downloads non adjusted"
+names(collection_mean)[names(collection_mean)=="mean_downloads"]<-"downloads adjusted"
+collection_mean.long <- gather(collection_mean, variable,value, -collection)
+names(collection_mean.long)[names(collection_mean.long)=="value"]<-"number of downloads"
+
+collection_dl<-ggplot(data=collection_mean.long, aes(x=collection, y=`number of downloads`, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge())
+collection_dl+theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+Next we can look at the frequency of update in the same method as above. 
+
+```{r}
+freq_mean_non_adj<-ddply(combined_factor, .(combined_factor$freq), summarize, mean_downloads=mean(downloads))
+freq_mean_adj<-ddply(combined_factor, .(combined_factor$freq), summarize, mean_downloads=mean(adj_downloads))
+freq_mean<-cbind(freq_mean_adj,freq_mean_non_adj$mean_downloads)
+names(freq_mean)[names(freq_mean)=="combined_factor$freq"]<-"update frequency"
+names(freq_mean)[names(freq_mean)=="freq_mean_non_adj$mean_downloads"]<-"downloads non adjusted"
+names(freq_mean)[names(freq_mean)=="mean_downloads"]<-"downloads adjusted"
+freq_mean.long <- gather(freq_mean, variable,value, -`update frequency`)
+names(freq_mean.long)[names(freq_mean.long)=="value"]<-"number of downloads"
+
+collection_dl<-ggplot(data=freq_mean.long, aes(x=`update frequency`, y=`number of downloads`, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge())
+collection_dl+theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Next we can look at a percentile chart and determine how many adjusted downloads a dataset needs to get to put it in X percentile.
+
+```{r}
+summary(combined_factor$adj_downloads)
+
+quant_list<-as.list(quantile(combined_factor$adj_downloads, probs = seq(0, 1, by= 0.01)))
+as.tibble(quant_list[82:91])
+as.tibble(quant_list[92:101])
+```
+
+For our classification problem we are going consider that datasets in the 95th percentile of adjusted downloads are popular enough to satisfy our business requirement of being a dataset worth promoting as newly released datasets that data consumers might be interested in, and worth promoting. 
+
+Therefore we will add a column to the dataframe that will contain our binary encoded popularity. We will encode datasets below the 95th percentile for adjusted downloads as a 0 and datasets in the 95th percentile or above as a 1. 
+
+```{r}
+j<-1
+for(i in 1:length(combined_factor$adj_downloads)){
+  if (combined_factor$adj_downloads[j]< quant_list[96]){
+    combined_factor$bin_downloads[j]<-0
+  } else {
+    combined_factor$bin_downloads[j]<-1
+  }
+  j<-j+1
+}
+
+combined_factor$bin_downloads<-as.factor(combined_factor$bin_downloads)
+```
+
+## Model Building and Training
+
+In this section we will begin by getting rid of anything we added to our dataframe for EDA, which will not be used to train our model. We will then make sure it is in a data.table format for tidymodels. 
+```{r}
+library(data.table)
+library(tidymodels)
+
+df<-combined_factor
+
+df$ID<-NULL
+df$date_created<-NULL
+df$date_last_mod<-NULL
+df$downloads<-NULL
+df$created_days<-NULL
+df$modified_days<-NULL
+df$adj_downloads<-NULL
+
+df<-as.data.table(df,keep.rownames = F)
+
+```
+We are then doing to convert all of our factor variables, except our target variable into numeric variables.
+
+```{r}
+df$org<-as.numeric(as.factor(df$org))
+df$collection<-as.numeric(as.factor(df$collection))
+df$freq<-as.numeric(as.factor(df$freq))
+df$jurisdiction<-as.numeric(as.factor(df$jurisdiction))
+df$key1<-as.numeric(as.factor(df$key1))
+df$key2<-as.numeric(as.factor(df$key2))
+df$key3<-as.numeric(as.factor(df$key3))
+df$subj1<-as.numeric(as.factor(df$subj1))
+df$subj2<-as.numeric(as.factor(df$subj2))
+df$subj3<-as.numeric(as.factor(df$subj3))
+df$subj4<-as.numeric(as.factor(df$subj4))
+```
+
+
+Next we will split our data into the training and testing split. We will set a seed to get reproducible splits. We will also use our binary encoded popularity as our stratification variable. Stratification will ensure we get samples that have a good mix of popular and non-popular datasets in each sample. If our data was more normally distributed we might not need to worry about this, but since we are using the 95th percentile as the threshold for popularity, within in a already skewed dataset, stratification is important.
+
+```{r}
+set.seed(888)
+
+pop_split<- initial_split(df,strata = bin_downloads)
+pop_train<-training(pop_split)
+pop_test<-testing(pop_split)
+```
+
+Next we will setup our model specification. We are using the XGBoost model, in the classification mode. We will run 100 trees, which is the default hyperparameter for this model. During the model tuning phase we will tune our hyperparameters: tree depth, min n, loss reduction, sample size, mtry, and learn rate.
+
+```{r}
+xgb_spec <- boost_tree(
+  trees = 100, 
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),                     ## first three: model complexity
+  sample_size = tune(), mtry = tune(),         ## randomness
+  learn_rate = tune()                         ## step size
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec
+```
+
+In order to tune our hyperparameters we need to give the model a set of values to try from. We will use a latin hypercube as our search strategy. As a form of local search optimization, latin hypercube should be more performant than other options such as grid seach or random search.
+
+```{r}
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), pop_train),
+  learn_rate(),
+  size = 20
+)
+
+xgb_grid
+```
+
+Next we will setup our workflow. We provide our model specification and our formula of predicting bin_downloads by all other variables. 
+
+```{r}
+xgb_wf <- workflow() %>%
+  add_formula(bin_downloads ~ .) %>%
+  add_model(xgb_spec)
+
+xgb_wf
+
+```
+
+Next we will setup cross validation samples in order to tune the model. We will use 5 fold cross validation. 
+
+```{r}
+pop_folds<-vfold_cv(pop_train,v=5,strata=bin_downloads)
+pop_folds
+```
+
+Next we will actually train the model based on our data and hyperparameters. Here we need to setup parallel processing to allow the model to train in a reasonable amount of time. In my model training environment, using 4 cores gave the best results. Dedicated more cores to the model seemed to cause sporadic failures.
+
+```{r}
+
+library(doParallel)
+cores<-detectCores()
+cl<- makeCluster(cores[1]-4)
+registerDoParallel(cl)
+
+set.seed(888)
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = pop_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+
+```
+
+Next we can illustrate how the different hyperparmeters influenced the performance of the model. We evaluate the model based on the *Area Under the Receiver Operator Curve*. In the evaluation 1 would indicate a perfect prediction, and 0.5 would indicate a prediction as good a 50-50 chance. 
+
+```{r}
+collect_metrics(xgb_res)
+
+
+xgb_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, mtry:sample_size) %>%
+  pivot_longer(mtry:sample_size,
+               values_to = "value",
+               names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+```
+
+Above we can see we are achieving mutliple combinations of hyperparameters returning good results, with some outliers that are low performing. 
+
+Here we can examine our best performing combinations of hyperparameters.
+
+```{r}
+best_auc <- select_best(xgb_res, "roc_auc")
+best_auc
+```
+
+Using our best performing set of hyperparameters we can finalize our model. 
+
+```{r}
+final_xgb <- finalize_workflow(
+  xgb_wf,
+  best_auc
+)
+
+final_xgb
+```
+
+With our finalized model we can look at the variable importance of each of our variables in the model. 
+
+```{r}
+library(vip)
+install.packages("vip")
+final_xgb %>%
+  fit(data = pop_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
+```
+Looking at the importance of each indicator, we can observe that the number of resources (files a user can download) contained within a dataset is our best predictor of popularity, which seems to make intuitive sense. Additionally jurisdiction and frequency seem to have low predictive power within the model. This is somewhat counter intuitive, I would have expected that datasets that a more frequently updated would recieve more downloads, as there would be a reason to periodically re-download the same dataset for the latest data. 
+
+lastly we can take our finalized model and fit it to our test data.
+
+```{r}
+final_res <- last_fit(final_xgb, pop_split)
+collect_metrics(final_res)
+```
+In our initial result we are getting a 95.22% accuracy and a 96.11% area under the curve. 
+```{r}
+final_res %>%
+  collect_predictions() %>%
+  roc_curve(bin_downloads, .pred_0) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+
+```
+
+Next we can use a confusion matrix to validate our results of our assessment made with the AUC. 
+```{r}
+final_res %>%
+  collect_predictions() %>% 
+  conf_mat(truth = bin_downloads, estimate = .pred_class)
+```
+
+Here we can see that the model is getting a good score at correctly predicting a true negative, meaning it can normally identify datasets that are not popular, but cannot identify datasets that will be popular. 
+
+## Corrective Action
+
+Since we have such a large number of datasets with zero downloads, I hypothesize that if we remove a certain collection type of records from the model we may be able to achieve better results. Here we are going to omit records in the geogratis collection, and then precede to re-run the analysis. 
+
+```{r}
+df2<-combined_factor
+
+df2$ID<-NULL
+df2$date_created<-NULL
+df2$date_last_mod<-NULL
+df2$downloads<-NULL
+df2$created_days<-NULL
+df2$modified_days<-NULL
+df2$adj_downloads<-NULL
+
+df2<-subset(df2, collection!="geogratis")
+        
+        
+df2$org<-as.numeric(as.factor(df2$org))
+df2$collection<-as.numeric(as.factor(df2$collection))
+df2$freq<-as.numeric(as.factor(df2$freq))
+df2$jurisdiction<-as.numeric(as.factor(df2$jurisdiction))
+df2$key1<-as.numeric(as.factor(df2$key1))
+df2$key2<-as.numeric(as.factor(df2$key2))
+df2$key3<-as.numeric(as.factor(df2$key3))
+df2$subj1<-as.numeric(as.factor(df2$subj1))
+df2$subj2<-as.numeric(as.factor(df2$subj2))
+df2$subj3<-as.numeric(as.factor(df2$subj3))
+df2$subj4<-as.numeric(as.factor(df2$subj4))
+
+```
+
+Here we will setup a second model to hold our new data subset. Since we have less data in the dataset with the subset, we can try more trees and a larger hyperparameter search space and still have reasonable training times.
+
+```{r}
+set.seed(888)
+
+pop_split2<- initial_split(df2,strata = bin_downloads)
+pop_train2<-training(pop_split2)
+pop_test2<-testing(pop_split2)
+
+
+xgb_spec2 <- boost_tree(
+  trees = 500, 
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),                     ## first three: model complexity
+  sample_size = tune(), mtry = tune(),         ## randomness
+  learn_rate = tune()                         ## step size
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec2
+
+
+
+xgb_grid2 <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), pop_train2),
+  learn_rate(),
+  size = 30
+)
+
+xgb_grid2
+
+xgb_wf2 <- workflow() %>%
+  add_formula(bin_downloads ~ .) %>%
+  add_model(xgb_spec2)
+
+xgb_wf2
+```
+re-setting our fivefold cross validation. 
+```{r}
+pop_folds2<-vfold_cv(pop_train2,v=5,strata=bin_downloads)
+pop_folds2
+```
+
+training the new model
+
+```{r}
+library(doParallel)
+cores<-detectCores()
+cl<- makeCluster(cores[1]-4)
+registerDoParallel(cl)
+
+set.seed(888)
+xgb_res2 <- tune_grid(
+  xgb_wf2,
+  resamples = pop_folds2,
+  grid = xgb_grid2,
+  control = control_grid(save_pred = TRUE)
+)
+```
+
+
+selecting our best result and finalizing our workflow
+
+```{r}
+```
+
+
+```{r}
+best_auc2 <- select_best(xgb_res2, "roc_auc")
+best_auc2
+
+
+final_xgb2 <- finalize_workflow(
+  xgb_wf2,
+  best_auc2
+)
+```
+
+
+```{r}
+```
+
+```{r}
+final_res2 <- last_fit(final_xgb2, pop_split2)
+collect_metrics(final_res2)
+
+
+final_res2 %>%
+  collect_predictions() %>%
+  roc_curve(bin_downloads, .pred_0) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+  
+
+final_res2 %>%
+  collect_predictions() %>% 
+  conf_mat(truth = bin_downloads, estimate = .pred_class)
+```
+
+
+In this model the ability to predict true positives is greatly improved from our first iteration. At this stage the type 1 errors still out number the correct predictions, therefore the model is not suitable for implementation at this stage. 
+
+Since we are using the 95% percentile as the definition of "popular" there may be too few examples to saturate the model with enough relevant training data. If we expand our definition of "popular" to the 90th percentile we would double the amount of records considered popular, which may provide the model with enough examples to make a better binary classification.
+
+
+
+
+```{r}
+df3<-combined_factor
+df3<-subset(df3, collection!="geogratis")
+
+summary(df3$adj_downloads)
+
+quant_list<-as.list(quantile(df3$adj_downloads, probs = seq(0, 1, by= 0.01)))
+as.tibble(quant_list[72:81])
+as.tibble(quant_list[82:91])
+as.tibble(quant_list[92:101])
+```
+
+Here we can remap the binary classification of popular to the 75th percentile
+```{r}
+
+j<-1
+for(i in 1:length(df3$adj_downloads)){
+  if (df3$adj_downloads[j]< quant_list[76]){
+    df3$bin_downloads[j]<-0
+  } else {
+    df3$bin_downloads[j]<-1
+  }
+  j<-j+1
+}
+
+df3$bin_downloads<-as.factor(df3$bin_downloads)
+
+```
+
+Here we will complete our required data preparation
+
+```{r}
+
+df3$ID<-NULL
+df3$date_created<-NULL
+df3$date_last_mod<-NULL
+df3$downloads<-NULL
+df3$created_days<-NULL
+df3$modified_days<-NULL
+df3$adj_downloads<-NULL
+
+
+df3$org<-as.numeric(as.factor(df3$org))
+df3$collection<-as.numeric(as.factor(df3$collection))
+df3$freq<-as.numeric(as.factor(df3$freq))
+df3$jurisdiction<-as.numeric(as.factor(df3$jurisdiction))
+df3$key1<-as.numeric(as.factor(df3$key1))
+df3$key2<-as.numeric(as.factor(df3$key2))
+df3$key3<-as.numeric(as.factor(df3$key3))
+df3$subj1<-as.numeric(as.factor(df3$subj1))
+df3$subj2<-as.numeric(as.factor(df3$subj2))
+df3$subj3<-as.numeric(as.factor(df3$subj3))
+df3$subj4<-as.numeric(as.factor(df3$subj4))
+
+
+```
+
+Here we will setup the same model again based on the 75th percentile data
+
+```{r}
+set.seed(888)
+
+pop_split3<- initial_split(df3,strata = bin_downloads)
+pop_train3<-training(pop_split3)
+pop_test3<-testing(pop_split3)
+
+
+xgb_spec3 <- boost_tree(
+  trees = 1000, 
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),                     ## first three: model complexity
+  sample_size = tune(), mtry = tune(),         ## randomness
+  learn_rate = tune()                         ## step size
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec3
+
+
+
+xgb_grid3 <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), pop_train3),
+  learn_rate(),
+  size = 45
+)
+
+xgb_grid3
+
+xgb_wf3 <- workflow() %>%
+  add_formula(bin_downloads ~ .) %>%
+  add_model(xgb_spec3)
+
+xgb_wf3
+```
+
+Next we will setup the cross validation and train the new model. We will additionally increase our validation to 10 fold.
+
+```{r}
+
+pop_folds3<-vfold_cv(pop_train3,v=10,strata=bin_downloads)
+pop_folds3
+
+```
+
+```{r}
+library(doParallel)
+cores<-detectCores()
+cl<- makeCluster(cores[1]-4)
+registerDoParallel(cl)
+
+set.seed(888)
+xgb_res3 <- tune_grid(
+  xgb_wf3,
+  resamples = pop_folds3,
+  grid = xgb_grid3,
+  control = control_grid(save_pred = TRUE)
+)
+```
+
+```{r}
+best_auc3 <- select_best(xgb_res3, "roc_auc")
+best_auc3
+
+
+final_xgb3 <- finalize_workflow(
+  xgb_wf3,
+  best_auc3
+)
+```
+
+
+```{r}
+final_res3 <- last_fit(final_xgb3, pop_split3)
+collect_metrics(final_res3)
+
+
+final_res3 %>%
+  collect_predictions() %>%
+  roc_curve(bin_downloads, .pred_0) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+  
+
+final_res3 %>%
+  collect_predictions() %>% 
+  conf_mat(truth = bin_downloads, estimate = .pred_class)
+```
+
+Based on the results here we have significantly reduced the proportion of type 1 error, however we are still seeing slightly more type 1 errors over correct predictions.
+
+With further refinement we should be able to select a "popularity percentile" that allows us to build a usable model. In addition if we were to deploy a larger model with more trees and a larger hyperparameter search space, we may be able to drive further performance gains without decreasing the selectivity of what we consider to be a popular download. 

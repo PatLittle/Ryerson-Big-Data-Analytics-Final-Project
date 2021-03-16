@@ -19,7 +19,6 @@ library()
 readxl
 
 
-wb<-loadWorkbook("downloads-012020-012021.xlsx")
 removeWorksheet(wb, 1)
 removeWorksheet(wb, 1)
 saveWorkbook(wb,"downloads.xlsx", overwrite = T)
