@@ -1,0 +1,12 @@
+name: predict-popular
+title: predict-popular
+username:
+account: patlittle
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3871599
+bundleId: 4400610
+url: https://patlittle.shinyapps.io/predict-popular/
+when: 1616827048.68516
+asMultiple: FALSE
+asStatic: FALSE

@@ -1,6 +1,8 @@
 ---
 title: "Initial Results - Predicting the Popularity of Open Datasets"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -313,6 +315,7 @@ xgb_wf <- workflow() %>%
   add_formula(bin_downloads ~ .) %>%
   add_model(xgb_spec)
 
+
 xgb_wf
 
 ```
@@ -468,7 +471,7 @@ pop_test2<-testing(pop_split2)
 
 
 xgb_spec2 <- boost_tree(
-  trees = 500, 
+  trees = 1500, 
   tree_depth = tune(), min_n = tune(), 
   loss_reduction = tune(),                     ## first three: model complexity
   sample_size = tune(), mtry = tune(),         ## randomness
@@ -488,7 +491,7 @@ xgb_grid2 <- grid_latin_hypercube(
   sample_size = sample_prop(),
   finalize(mtry(), pop_train2),
   learn_rate(),
-  size = 30
+  size = 50
 )
 
 xgb_grid2
@@ -515,21 +518,12 @@ registerDoParallel(cl)
 
 set.seed(888)
 xgb_res2 <- tune_grid(
-  xgb_wf2,
-  resamples = pop_folds2,
-  grid = xgb_grid2,
-  control = control_grid(save_pred = TRUE)
-)
-```
-
-
-selecting our best result and finalizing our workflow
-
-```{r}
-```
-
-
-```{r}
+    xgb_wf3,
+  resamples = pop_folds3,
+  grid = xgb_grid3,
+  control = control_grid(save_pred = TRUE))
+  
+  
 best_auc2 <- select_best(xgb_res2, "roc_auc")
 best_auc2
 
