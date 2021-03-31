@@ -2,6 +2,7 @@ library(readxl)
 library(openxlsx)
 library(tidyverse)
 library(R.utils)
+library(tidymodels)
 wb<-loadWorkbook("downloads-012020-012021.xlsx")
 removeWorksheet(wb, 1)#remove the unwanted tabs
 removeWorksheet(wb, 1)#do it again for the 2nd unwanted
@@ -137,7 +138,7 @@ set.seed(888)
 pop_folds<-vfold_cv(pop_train,v=10,strata=bin_downloads)
 
 xgb_spec <- boost_tree(
-  trees = 1500, 
+  trees = 1000, 
   tree_depth = tune(), min_n = tune(), 
   loss_reduction = tune(),                     
   sample_size = tune(), mtry = tune(),         
@@ -155,7 +156,7 @@ xgb_grid <- grid_latin_hypercube(
   sample_size = sample_prop(),
   finalize(mtry(), pop_train),
   learn_rate(),
-  size = 50
+  size = 45
 )
 
 xgb_grid
