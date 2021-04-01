@@ -1,4 +1,4 @@
-install.packages(c("ckanr","parsnip","recipes","magrittr","tidymodels"))
+install.packages(c("parsnip","recipes","magrittr","tidymodels"))
 
 
 library(ckanr)
@@ -6,6 +6,9 @@ library(parsnip)
 library(recipes)
 library(magrittr)
 library(tidymodels)
+
+install.packages("remotes")
+remotes::install_github("ropensci/ckanr")
 
 
 ckanr_setup(url="https://open.canada.ca/data")
