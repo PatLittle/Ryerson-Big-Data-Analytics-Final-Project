@@ -60,4 +60,4 @@ names(output)<-c("date","org","title","ID","collection","freq")
 output$prediction<-pred_val
 
 
-write.table(output, file="popularity-predictions.csv",sep=',', row.names=F, col.names=T)
+write.table(output, file="popularity-predictions.csv",sep=',', append = T, row.names=F, col.names=F)
