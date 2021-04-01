@@ -4,11 +4,13 @@ library(recipes)
 library(magrittr)
 library(tidymodels)
 
+
+
 ckanr_setup(url="https://open.canada.ca/data")
 
 api_data <- package_search(sort='metadata_created desc')
 
-model<-readRDS("saved_model.Rds")
+model<-readRDS(url("https://github.com/PatLittle/Ryerson-Big-Data-Analytics-Final-Project/raw/master/final-report/saved_model.Rds"))
 
 ID<-api_data$results[[1]]$id
 title<-api_data$results[[1]]$title
