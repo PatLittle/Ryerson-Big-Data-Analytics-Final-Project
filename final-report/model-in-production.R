@@ -1,3 +1,6 @@
+install.packages(c("ckanr","parsnip","recipes","magrittr","tidymodels"))
+
+
 library(ckanr)
 library(parsnip)
 library(recipes)
