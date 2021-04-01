@@ -5,7 +5,6 @@ library(magrittr)
 library(tidymodels)
 
 
-
 ckanr_setup(url="https://open.canada.ca/data")
 
 api_data <- package_search(sort='metadata_created desc')
@@ -42,7 +41,6 @@ pred_val<-as.numeric(pred_full$.pred_class)
 output<-data.frame(date(),org,title,ID,collection,freq)
 names(output)<-c("date","org","title","ID","collection","freq")
 output$prediction<-pred_val
-
 
 
 write.table(output, file="popularity-predictions.csv",sep=',', row.names=F, col.names=T)
