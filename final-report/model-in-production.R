@@ -7,6 +7,11 @@ library(recipes)
 library(magrittr)
 library(tidymodels)
 
+system("sudo apt-get install libcurl4-openssl-dev")
+
+install.packages("curl")
+library('curl')
+
 install.packages("remotes")
 remotes::install_github("ropensci/ckanr")
 
