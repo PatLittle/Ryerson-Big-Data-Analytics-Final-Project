@@ -19,6 +19,8 @@ library(parsnip)
 library(recipes)
 library(magrittr)
 library(tidymodels)
+install.packages("xgboost")
+library(xgboost)
 
 ckanr_setup(url="https://open.canada.ca/data")
 
