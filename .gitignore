@@ -1,7 +1,8 @@
 *.xls
 
 *.jsonl
-*.csv
+combined_1h.csv
+combined.csv
 *.RData
 *.RHistory
 rf80k.rds
