@@ -1,3 +1,16 @@
+
+
+system("sudo apt-get install libcurl4-openssl-dev")
+install.packages("curl")
+library('curl')
+
+install.packages("remotes")
+library(remotes)
+
+install_github("ropensci/ckanr", upgrade = "always")
+library(ckanr)
+
+
 install.packages(c("parsnip","recipes","magrittr","tidymodels"))
 
 
@@ -6,16 +19,6 @@ library(parsnip)
 library(recipes)
 library(magrittr)
 library(tidymodels)
-
-system("sudo apt-get install libcurl4-openssl-dev")
-
-install.packages("curl")
-library('curl')
-
-install.packages("remotes")
-library(remotes)
-install_github("ropensci/ckanr",force=TRUE, upgrade = "always")
-
 
 ckanr_setup(url="https://open.canada.ca/data")
 
