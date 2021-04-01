@@ -13,7 +13,8 @@ install.packages("curl")
 library('curl')
 
 install.packages("remotes")
-remotes::install_github("ropensci/ckanr")
+library(remotes)
+install_github("ropensci/ckanr",force=TRUE, upgrade = "always")
 
 
 ckanr_setup(url="https://open.canada.ca/data")
