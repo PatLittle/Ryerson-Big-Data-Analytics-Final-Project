@@ -1,13 +1,9 @@
 ---
 title: "final-rmd"
-output: html_document
+output:
+  html_document:
+    df_print: paged
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-
-```
 
 ```{r}
 library(readxl)
@@ -30,6 +26,7 @@ library(tibble)
 
 ```{r cache=TRUE}
 
+tic()
 wb<-loadWorkbook("downloads-012020-012021.xlsx")
 removeWorksheet(wb, 1)#remove the unwanted tabs
 removeWorksheet(wb, 1)#do it again for the 2nd unwanted
@@ -101,9 +98,6 @@ combined<-na.replace(combined,0)
 combined$date_created<-as.Date(combined$date_created)
 combined$date_last_mod<-as.Date(combined$date_last_mod)
 
-##################start removing combined_factor####################
-
-
 date_of_downloads<-as.Date.character("2021-01-31","%Y-%m-%d")
 combined$created_days<-as.numeric(difftime(date_of_downloads,combined$date_created, units="days"))
 combined$modified_days<-as.numeric(difftime(date_of_downloads,combined$date_last_mod, units="days"))
@@ -117,6 +111,8 @@ for(i in 1:length(combined$downloads)){
 }
 
 quant_list<-as.list(quantile(combined$adj_downloads, probs = seq(0, 1, by= 0.01)))
+
+quant_list[96]
 
 j<-1
 for(i in 1:length(combined$adj_downloads)){
@@ -152,276 +148,34 @@ df$key1<-str_replace_all(df$key1, regex("\\W+"),"")
 df$key2<-str_replace_all(df$key2, regex("\\W+"),"")
 df$key3<-str_replace_all(df$key3, regex("\\W+"),"")
 
-df_2<-df
-df_2$org<-as.numeric(as.factor(df_2$org))
-df_2$collection<-as.numeric(as.factor(df_2$collection))
-df_2$freq<-as.numeric(as.factor(df_2$freq))
-df_2$jurisdiction<-as.numeric(as.factor(df_2$jurisdiction))
-df_2$key1<-as.numeric(as.factor(df_2$key1))
-df_2$key2<-as.numeric(as.factor(df_2$key2))
-df_2$key3<-as.numeric(as.factor(df_2$key3))
-df_2$subj1<-as.numeric(as.factor(df_2$subj1))
-df_2$subj2<-as.numeric(as.factor(df_2$subj2))
-df_2$subj3<-as.numeric(as.factor(df_2$subj3))
-df_2$subj4<-as.numeric(as.factor(df_2$subj4))
-
-##########build model##############
-
-
-```
-
-
-```{r cache=TRUE}
-set.seed(888)
-pop_split<- initial_split(df,strata = bin_downloads)
-pop_train<-training(pop_split)
-pop_test<-testing(pop_split)
-
-set.seed(888)
-pop_folds<-vfold_cv(pop_train,v=10,strata=bin_downloads)
-
-xgb_spec <- boost_tree(
-  trees = 1000, 
-  tree_depth = tune(), min_n = tune(), 
-  loss_reduction = tune(),                     
-  sample_size = tune(), mtry = tune(),         
-  learn_rate = tune()                        
-) %>% 
-  set_engine("xgboost") %>% 
-  set_mode("classification")
-
-xgb_spec
-
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), pop_train),
-  learn_rate(),
-  size = 35
-)
-
-xgb_grid
-
-xgb_recipe <- recipe(bin_downloads ~ ., data = pop_train) %>% 
-  step_normalize(all_numeric(), -all_outcomes()) %>% 
-  step_dummy(all_nominal(), -all_outcomes())
-  
-
-
-tic()
-xgb_recipe %>%
-  prep() %>%
-  bake(new_data = pop_train) 
+df<-df
+df$org<-as.numeric(as.factor(df$org))
+df$collection<-as.numeric(as.factor(df$collection))
+df$freq<-as.numeric(as.factor(df$freq))
+df$jurisdiction<-as.numeric(as.factor(df$jurisdiction))
+df$key1<-as.numeric(as.factor(df$key1))
+df$key2<-as.numeric(as.factor(df$key2))
+df$key3<-as.numeric(as.factor(df$key3))
+df$subj1<-as.numeric(as.factor(df$subj1))
+df$subj2<-as.numeric(as.factor(df$subj2))
+df$subj3<-as.numeric(as.factor(df$subj3))
+df$subj4<-as.numeric(as.factor(df$subj4))
 toc()
-
-
-xgb_wf <- workflow() %>%
-  add_model(xgb_spec) %>%
-  add_recipe(xgb_recipe)
-
-xgb_wf
-
-
-
 ```
 
-
 ```{r cache=TRUE}
-```
-
-
-```{r cache=TRUE}
-library(doParallel)
-cores<-detectCores()
-cl<- makeCluster(cores[1]-4)
-registerDoParallel(cl)
-
-tic()
-set.seed(888)
-xgb_res <- tune_grid(
-  xgb_wf,
-  resamples = pop_folds,
-  grid = xgb_grid,
-  control = control_grid(save_pred = TRUE))
-toc()
-
-
-
-best_auc <- select_best(xgb_res, "roc_auc")
-best_auc
-
-
-final_xgb <- finalize_workflow(
-  xgb_wf,
-  best_auc
-)
-```
-
-
-```{r cache=TRUE}
-```
-
-
-```{r cache=TRUE}
-tic()
-final_res <- last_fit(final_xgb, pop_split)
-collect_metrics(final_res)
-toc()
-
-final_res %>%
-  collect_predictions() %>%
-  roc_curve(bin_downloads, .pred_0) %>%
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_line(size = 1.5, color = "midnightblue") +
-  geom_abline(
-    lty = 2, alpha = 0.5,
-    color = "gray50",
-    size = 1.2
-  )
-
-
-final_res %>%
-  collect_predictions() %>% 
-  conf_mat(truth = bin_downloads, estimate = .pred_class)
-
-library(vip)
-final_xgb %>%
-  fit(data = pop_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
-
-final_res$.workflow[[1]]
-saveRDS(final_res$.workflow[[1]],"saved_model.Rds")
-
-saved_model<-readRDS("saved_model.Rds")
-
-predict(saved_model,pop_test[2,])
-```
-```{r cache=TRUE}
-
 set.seed(888)
 
-pop_split2<- initial_split(df_2,strata = bin_downloads)
-pop_train2<-training(pop_split2)
-pop_test2<-testing(pop_split2)
-
-xgb_spec2 <- boost_tree(
-  trees = 1000, 
-  tree_depth = tune(), min_n = tune(), 
-  loss_reduction = tune(),                     ## first three: model complexity
-  sample_size = tune(), mtry = tune(),         ## randomness
-  learn_rate = tune()                         ## step size
-) %>% 
-  set_engine("xgboost") %>% 
-  set_mode("classification")
-
-xgb_spec2
-
-xgb_grid2 <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), pop_train2),
-  learn_rate(),
-  size = 35
-)
-
-xgb_grid2
-
-xgb_wf2 <- workflow() %>%
-  add_formula(bin_downloads ~ .) %>%
-  add_model(xgb_spec2)
-
-
-xgb_wf2
-
-pop_folds2<-vfold_cv(pop_train2,v=10,strata=bin_downloads)
-pop_folds2
-
-
-
-```
-
-```{r cache=TRUE}
-library(doParallel)
-cores<-detectCores()
-cl<- makeCluster(cores[1]-4)
-registerDoParallel(cl)
-
-tic()
-set.seed(888)
-xgb_res2 <- tune_grid(
-  xgb_wf2,
-  resamples = pop_folds2,
-  grid = xgb_grid2,
-  control = control_grid(save_pred = TRUE)
-)
-tic()
-
-collect_metrics(xgb_res2)
-
-best_auc <- select_best(xgb_res2, "roc_auc")
-best_auc
-
-
-final_xgb2 <- finalize_workflow(
-  xgb_wf2,
-  best_auc
-)
-
-final_xgb2
-
-library(vip)
-install.packages("vip")
-final_xgb2 %>%
-  fit(data = pop_train2) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
-
-
-final_res2 <- last_fit(final_xgb2, pop_split2)
-collect_metrics(final_res2)
-
-final_res2 %>%
-  collect_predictions() %>%
-  roc_curve(bin_downloads, .pred_0) %>%
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_line(size = 1.5, color = "midnightblue") +
-  geom_abline(
-    lty = 2, alpha = 0.5,
-    color = "gray50",
-    size = 1.2
-  )
-
-final_res2 %>%
-  collect_predictions() %>% 
-  conf_mat(truth = bin_downloads, estimate = .pred_class)
-
-
-
-
-saveRDS(final_res2$.workflow[[1]],"saved_model2.Rds")
-
-saved_model2<-readRDS("saved_model2.Rds")
-
-```
-
-```{r}
-set.seed(888)
-
-pop_split3<- initial_split(df_2,strata = bin_downloads)
+pop_split3<- initial_split(df,strata = bin_downloads)
 pop_train3<-training(pop_split3)
 pop_test3<-testing(pop_split3)
 
 xgb_spec3 <- boost_tree(
   trees = 2000, 
   tree_depth = tune(), min_n = tune(), 
-  loss_reduction = tune(),                     ## first three: model complexity
-  sample_size = tune(), mtry = tune(),         ## randomness
-  learn_rate = tune()                         ## step size
+  loss_reduction = tune(),                     
+  sample_size = tune(), mtry = tune(),         
+  learn_rate = tune()                         
 ) %>% 
   set_engine("xgboost") %>% 
   set_mode("classification")
@@ -433,7 +187,7 @@ xgb_grid3 <- grid_latin_hypercube(
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), pop_train2),
+  finalize(mtry(), pop_train3),
   learn_rate(),
   size = 50
 )
@@ -464,7 +218,7 @@ xgb_res3 <- tune_grid(
   grid = xgb_grid3,
   control = control_grid(save_pred = TRUE)
 )
-tic()
+toc()
 
 collect_metrics(xgb_res3)
 
@@ -476,19 +230,12 @@ final_xgb3 <- finalize_workflow(
   xgb_wf3,
   best_auc
 )
-
 final_xgb3
 
-library(vip)
-
-final_xgb3 %>%
-  fit(data = pop_train3) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
-
-
 final_res3 <- last_fit(final_xgb3, pop_split3)
-collect_metrics(final_res2)
+collect_metrics(final_res3)
+final_res3
+
 
 final_res3 %>%
   collect_predictions() %>%
@@ -508,9 +255,54 @@ final_res3 %>%
 
 
 
-saveRDS(final_res3$.workflow[[1]],"saved_model3.Rds")
+saveRDS(final_res3$.workflow[[1]],"final_model.Rds")
+```
+```{r cache=TRUE}
+best_auc
 
-saved_model3<-readRDS("saved_model3.Rds")
+library(vip)
 
+final_xgb3 %>%
+  fit(data = pop_train3) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
+```
+
+```{r cache=TRUE}
+collect_metrics(xgb_res3)
+
+
+xgb_res3 %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, mtry:sample_size) %>%
+  pivot_longer(mtry:sample_size,
+               values_to = "value",
+               names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+
+collect_metrics(xgb_res3)
+
+
+final_res3 %>%
+  collect_predictions() %>% 
+  conf_mat(truth = bin_downloads, estimate = .pred_class)
+```
+
+```{r}
+final_res3 %>%
+  collect_predictions() %>%
+  roc_curve(bin_downloads, .pred_0) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
 ```
 
