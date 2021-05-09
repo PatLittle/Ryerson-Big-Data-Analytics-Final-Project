@@ -11,7 +11,7 @@ install_github("ropensci/ckanr", upgrade = "always")
 library(ckanr)
 
 
-install.packages(c("parsnip","recipes","magrittr","tidymodels"))
+install.packages(c("parsnip","recipes","magrittr","tidymodels","stringr"))
 
 
 
@@ -21,6 +21,7 @@ library(magrittr)
 library(tidymodels)
 install.packages("xgboost")
 library(xgboost)
+library(stringr)
 
 ckanr_setup(url="https://open.canada.ca/data")
 
